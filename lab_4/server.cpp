@@ -1,6 +1,5 @@
 #define MIN_NUMBER 0
 #define MAX_NUMBER 100
-#define BUFFER_SIZE 64
 
 #include "common.hpp"
 #include <semaphore.h>
@@ -25,42 +24,40 @@ void print_message(const sockaddr_in& client_addr, const std::string& message) {
 
 void handle_client(int client_fd, sockaddr_in client_addr) {
     srand(time(nullptr) + getpid());
-    int secret = rand() % MAX_NUMBER + MIN_NUMBER;
+    int secret = rand() % (MAX_NUMBER - MIN_NUMBER + 1) + MIN_NUMBER;
 
     print_message(client_addr, " connected. Secret number: " + std::to_string(secret));
 
-    char buffer[BUFFER_SIZE];
     while (true) {
-        check(recv(client_fd, buffer, sizeof(buffer), 0));
+        int guess;
+        check(recv(client_fd, &guess, sizeof(guess), 0));
 
-        int guess = atoi(buffer);
-
-        std::string response;
+        Response response;
         if (guess < secret) {
-            response = "higher";
+            response = Response::HIGHER;
         } else if (guess > secret) {
-            response = "lower";
+            response = Response::LOWER;
         } else {
-            response = "correct";
+            response = Response::CORRECT;
             print_message(client_addr, " guessed the number! " + std::to_string(secret));
         }
 
-        print_message(client_addr, " guessed: " + std::to_string(guess) + " - response: " + response);
+        print_message(client_addr, " guessed: " + std::to_string(guess) + 
+                     " - response: " + (response == Response::HIGHER ? "higher" : 
+                                       response == Response::LOWER ? "lower" : "correct"));
 
-        check(send(client_fd, response.c_str(), response.size() + 1, 0));
+        check(send(client_fd, &response, sizeof(response), 0));
 
-        if (response == "correct") break;
+        if (response == Response::CORRECT) break;
     }
 
     print_message(client_addr, " disconnected");
-
     close(client_fd);
     exit(0);
 }
 
 int main() {
     print_sem = check(sem_open("/sem", O_CREAT, 0644, 1));
-
     no_zombie();
 
     auto server_addr = local_addr(SERVER_PORT);
@@ -80,8 +77,7 @@ int main() {
         if (pid == 0) {
             close(server_fd);
             handle_client(client_fd, client_addr);
-        }
-        else {
+        } else {
             close(client_fd);
         }
     }

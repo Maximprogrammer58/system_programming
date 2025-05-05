@@ -10,6 +10,12 @@
 constexpr unsigned short SERVER_PORT = 60002;
 constexpr int SOCKET_TYPE = SOCK_STREAM;
 
+enum class Response : int {
+    HIGHER = 1,
+    LOWER = -1,
+    CORRECT = 0
+};
+
 inline std::ostream& operator<<(std::ostream& s, const sockaddr_in& addr) {
     union {
         in_addr_t x;

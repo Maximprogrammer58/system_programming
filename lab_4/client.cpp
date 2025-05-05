@@ -1,45 +1,39 @@
 #define MIN_NUMBER 0
 #define MAX_NUMBER 100
-#define BUFFER_SIZE 64
 
 #include "common.hpp"
 #include <iostream>
 
 void play_game(int sock_fd, bool is_automatic) {
-    char buffer[BUFFER_SIZE];
     int low = MIN_NUMBER, high = MAX_NUMBER;
 
     while (true) {
         int guess;
-        std::string message;
-
         if (is_automatic) {
             guess = low + (high - low) / 2;
-            message = std::to_string(guess);
             std::cout << "Trying: " << guess << std::endl;
-        }
-        else {
+        } else {
             std::cout << "Enter your guess (" << low << "-" << high << "): ";
             std::cin >> guess;
-            message = std::to_string(guess);
         }
 
-        check(send(sock_fd, message.c_str(), message.size() + 1, 0));
+        check(send(sock_fd, &guess, sizeof(guess), 0));
 
-        check(recv(sock_fd, buffer, sizeof(buffer), 0));
+        Response response;
+        check(recv(sock_fd, &response, sizeof(response), 0));
 
-        std::string response(buffer);
-        std::cout << response << std::endl;
-
-        if (response == "correct") {
-            std::cout << "Congratulations! The number was " << guess << std::endl;
-            break;
-        }
-        if (response == "higher") {
-            low = guess + 1;
-        }
-        else if (response == "lower") {
-            high = guess - 1;
+        switch (response) {
+            case Response::CORRECT:
+                std::cout << "Congratulations! The number was " << guess << std::endl;
+                return;
+            case Response::HIGHER:
+                std::cout << "Higher!" << std::endl;
+                low = guess + 1;
+                break;
+            case Response::LOWER:
+                std::cout << "Lower!" << std::endl;
+                high = guess - 1;
+                break;
         }
 
         if (low > high) {
@@ -68,6 +62,5 @@ int main(int argc, char* argv[]) {
     play_game(sock_fd, mode == 0);
 
     close(sock_fd);
-
     return 0;
 }
